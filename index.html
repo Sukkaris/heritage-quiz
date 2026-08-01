@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b3a2f">
+<title>世界遺産クイズ</title>
+
+<!-- iPhoneのホーム画面に追加したときの見え方 -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="世界遺産">
+<meta name="mobile-web-app-capable" content="yes">
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ スタート画面 ============ -->
+<main id="screen-start" class="screen">
+  <header class="app-header">
+    <h1>世界遺産クイズ</h1>
+    <p class="sub" id="master-info">読み込み中…</p>
+  </header>
+
+  <section class="card stats-card">
+    <h2>学習状況</h2>
+    <div class="stat-row">
+      <div class="stat"><span class="stat-num" id="stat-answered">0</span><span class="stat-label">総解答数</span></div>
+      <div class="stat"><span class="stat-num" id="stat-rate">–</span><span class="stat-label">正答率</span></div>
+      <div class="stat"><span class="stat-num" id="stat-seen">0</span><span class="stat-label">出題済み遺産</span></div>
+      <div class="stat"><span class="stat-num" id="stat-weak">0</span><span class="stat-label">苦手</span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>モード</h2>
+    <div class="seg" id="mode-select">
+      <button class="seg-btn is-on" data-mode="normal">通常</button>
+      <button class="seg-btn" data-mode="weak">弱点</button>
+    </div>
+    <p class="hint" id="mode-hint">フィルタ内から均等に出題します。</p>
+  </section>
+
+  <section class="card">
+    <h2>出題範囲</h2>
+
+    <div class="filter-group">
+      <div class="filter-head"><span>地域</span><button class="mini" data-clear="region">解除</button></div>
+      <div class="chips" id="filter-region"></div>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-head"><span>区分</span><button class="mini" data-clear="category">解除</button></div>
+      <div class="chips" id="filter-category"></div>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-head"><span>登録年代</span><button class="mini" data-clear="era">解除</button></div>
+      <div class="chips" id="filter-era"></div>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-head"><span>難易度</span><button class="mini" data-clear="difficulty">解除</button></div>
+      <div class="chips" id="filter-difficulty"></div>
+    </div>
+
+    <p class="hint">何も選ばなければ全範囲から出題します。</p>
+  </section>
+
+  <p class="pool-info" id="pool-info"></p>
+  <button class="primary-btn" id="btn-start">10問はじめる</button>
+
+  <details class="card data-card">
+    <summary>学習記録の管理</summary>
+    <div class="data-actions">
+      <button class="mini-btn" id="btn-export">JSONで書き出す</button>
+      <label class="mini-btn" for="import-file">JSONを読み込む</label>
+      <input type="file" id="import-file" accept="application/json" hidden>
+      <button class="mini-btn danger" id="btn-reset">記録をすべて消す</button>
+    </div>
+    <p class="hint">記録はこのブラウザのlocalStorageにのみ保存されます。</p>
+  </details>
+
+  <footer class="credit">
+    データ出典: <a href="https://www.wikidata.org/" rel="noreferrer">Wikidata</a>（CC0）／
+    日本語の登録名・登録基準の条文は<a href="https://ja.wikipedia.org/wiki/世界遺産" rel="noreferrer">日本語版Wikipedia</a>（CC BY-SA 4.0）より。
+    個人の学習用。
+  </footer>
+</main>
+
+<!-- ============ 出題画面 ============ -->
+<main id="screen-quiz" class="screen" hidden>
+  <header class="quiz-header">
+    <button class="quit" id="btn-quit" aria-label="中断">×</button>
+    <div class="progress">
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      <span class="progress-text" id="progress-text">1 / 10</span>
+    </div>
+  </header>
+
+  <section class="question-area">
+    <p class="q-tag" id="q-tag"></p>
+    <h2 class="q-text" id="q-text"></h2>
+  </section>
+
+  <div class="choices" id="choices"></div>
+
+  <section class="feedback" id="feedback" hidden>
+    <p class="verdict" id="verdict"></p>
+    <p class="explain" id="explain"></p>
+    <button class="primary-btn" id="btn-next">次へ</button>
+  </section>
+</main>
+
+<!-- ============ 結果画面 ============ -->
+<main id="screen-result" class="screen" hidden>
+  <header class="app-header">
+    <h1>結果</h1>
+  </header>
+
+  <section class="card score-card">
+    <p class="score" id="score">0 / 10</p>
+    <p class="score-rate" id="score-rate">正答率 0%</p>
+  </section>
+
+  <section class="card" id="wrong-card">
+    <h2>間違えた遺産</h2>
+    <ul class="wrong-list" id="wrong-list"></ul>
+  </section>
+
+  <button class="primary-btn" id="btn-again">同じ条件でもう一度</button>
+  <button class="ghost-btn" id="btn-home">スタートへ戻る</button>
+</main>
+
+<script src="data.js"></script>
+<script src="manual_questions.js"></script>
+<script src="app.js"></script>
+<script>
+// オフラインで使えるようにする。file:// で開いたときは何もしない。
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  const register = () => navigator.serviceWorker.register('sw.js')
+    .catch(() => { /* 登録できなくてもアプリ自体は動く */ });
+  if (document.readyState === 'complete') register();
+  else window.addEventListener('load', register);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+{
+ "Q23038972": {
+  "label": "(i)",
+  "desc_en": "represents a masterpiece of human creative genius (UNESCO World Heritage List)",
+  "desc_ja": "世界遺産登録基準"
+ },
+ "Q23038976": {
+  "label": "(ii)",
+  "desc_en": "exhibits an important interchange of human values, over a span of time or within a cultural area of the world, in architecture, technology, monumental arts, town-planning or landscape design (UNESCO World Heritage List)",
+  "desc_ja": "世界遺産登録基準"
+ },
+ "Q23038977": {
+  "label": "(iii)",
+  "desc_en": "bears a unique or at least exceptional testimony to a cultural tradition or to a civilization which is living or which has disappeared (UNESCO World Heritage List)",
+  "desc_ja": "世界遺産登録基準: 世界遺産登録基準の1つ。「現存するまたは消滅した文化的伝統または文明の、唯一のまたは少なくとも稀な証拠」"
+ },
+ "Q23038978": {
+  "label": "(iv)",
+  "desc_en": "an outstanding example of a type of building, architectural or technological ensemble or landscape which illustrates (a) significant stage(s) in human history (UNESCO World Heritage List)",
+  "desc_ja": "世界遺産登録基準: 世界遺産登録基準の1つ。「人類の歴史上重要な時代を例証する建築様式、建築物群、技術の集積または景観の優れた例」"
+ },
+ "Q23038979": {
+  "label": "(v)",
+  "desc_en": "an outstanding example of a traditional human settlement, land-use, or sea-use which is representative of a culture (or cultures), or human interaction with the environment (UNESCO World Heritage List)",
+  "desc_ja": "世界遺産登録基準: 世界遺産登録基準の1つ。「ある文化（または複数の文化）を代表する伝統的集落、あるいは陸上ないし海上利用の際立った例。もしくは特に不可逆的な変化の中で存続が危ぶまれている人と環境の関わりあいの際立った例」"
+ },
+ "Q23038980": {
+  "label": "(vi)",
+  "desc_en": "directly or tangibly associated with events or living traditions, with ideas, or with beliefs, with artistic and literary works of outstanding universal significance (UNESCO World Heritage List)",
+  "desc_ja": "世界遺産登録基準: 世界遺産登録基準の1つ。「顕著で普遍的な意義を有する出来事、現存する伝統、思想、信仰または芸術的、文学的作品と直接にまたは明白に関連するもの」"
+ },
+ "Q23038981": {
+  "label": "(vii)",
+  "desc_en": "contains superlative natural phenomena or areas of exceptional natural beauty and aesthetic importance (UNESCO World Heritage List)",
+  "desc_ja": "世界遺産登録基準: 世界遺産登録基準の1つ。「ひときわすぐれた自然美及び美的な重要性をもつ最高の自然現象または地域を含むもの」"
+ },
+ "Q23038983": {
+  "label": "(viii)",
+  "desc_en": "outstanding examples representing major stages of earth's history, including the record of life, on-going geological processes (UNESCO World Heritage List)",
+  "desc_ja": "世界遺産登録基準: 世界遺産登録基準の1つ。「地球の歴史上の主要な段階を示す顕著な見本であるもの。これには生物の記録、地形の発達における重要な地学的進行過程、重要な地形的特性、自然地理的特性などが含まれる」"
+ },
+ "Q23038985": {
+  "label": "(ix)",
+  "desc_en": "outstanding examples representing significant on-going ecological and biological processes in terrestrial, fresh water, coastal and marine ecosystems and communities of plants and animals (UNESCO World Heritage List)",
+  "desc_ja": "世界遺産登録基準: 世界遺産登録基準の1つ。「陸上、淡水、沿岸および海洋生態系と動植物群集の進化と発達において進行しつつある重要な生態学的、生物学的プロセスを示す顕著な見本であるもの」"
+ },
+ "Q23038986": {
+  "label": "(x)",
+  "desc_en": "contains the most important and significant natural habitats for conservation of biological diversity and threatened species (UNESCO World Heritage List)",
+  "desc_ja": "世界遺産登録基準: 世界遺産登録基準の1つ。「生物多様性の本来的保全にとって、もっとも重要かつ意義深い自然生息地を含んでいるもの。これには科学上または保全上の観点から、すぐれて普遍的価値を持つ絶滅の恐れのある種の生息地などが含まれる」"
+ }
+}
