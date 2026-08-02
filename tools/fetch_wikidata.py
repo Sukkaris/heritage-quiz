@@ -27,19 +27,28 @@ WAIT_BETWEEN = 70          # レート制限が 1req/min のため
 RETRY_WAIT = 95
 MAX_RETRY = 10
 
-# 世界遺産 = P1435（遺産保護指定）が Q9259（世界遺産）
-BASE = "?item wdt:P1435 wd:Q9259 ."
+# 世界遺産 = P1435（遺産保護指定）が Q9259（世界遺産）。
+# ただし修飾子 P582（終了日）が付いた指定は「登録抹消」または「別の遺産へ統合」を
+# 意味するので除外する。wdt:（truthy）で引くとこれらが混ざる。
+#   例: アラビアオリックスの保護区(P582=2007 抹消)
+#       バージェス頁岩(P582=1984 カナディアン・ロッキーへ統合)
+#       シャンボール城(P582=2000 ロワール渓谷へ統合)
+BASE = """
+  ?item p:P1435 ?whsSt .
+  ?whsSt ps:P1435 wd:Q9259 .
+  FILTER NOT EXISTS { ?whsSt pq:P582 ?whsEnd . }
+"""
 
 QUERIES = {
     # 本体: ラベル(ja/en)、サイトリンク数、登録年(P1435文の修飾子P580)
     "items": """
 SELECT ?item ?ja ?en ?sitelinks ?date ?whsid WHERE {
   %s
+  OPTIONAL { ?whsSt pq:P580 ?date . }
   OPTIONAL { ?item rdfs:label ?ja . FILTER(LANG(?ja) = "ja") }
   OPTIONAL { ?item rdfs:label ?en . FILTER(LANG(?en) = "en") }
   OPTIONAL { ?item wikibase:sitelinks ?sitelinks . }
   OPTIONAL { ?item wdt:P757 ?whsid . }
-  OPTIONAL { ?item p:P1435 ?st . ?st ps:P1435 wd:Q9259 ; pq:P580 ?date . }
 }""" % BASE,
     # 所在国（複数国にまたがる遺産は複数行で返る）
     "countries": """
@@ -67,12 +76,13 @@ SELECT ?item ?coord WHERE {
   %s
   ?item wdt:P625 ?coord .
 }""" % BASE,
-    # 危機遺産フラグの素材: P1435 の値の種類ごとの件数ではなく、
-    # 「危機にさらされている世界遺産(Q1459900)」指定を持つ遺産
+    # 危機遺産。こちらも終了日が付いていれば「危機を脱した」ものなので除外する
     "in_danger": """
 SELECT ?item WHERE {
   %s
-  ?item wdt:P1435 wd:Q1459900 .
+  ?item p:P1435 ?dangerSt .
+  ?dangerSt ps:P1435 wd:Q1459900 .
+  FILTER NOT EXISTS { ?dangerSt pq:P582 ?dangerEnd . }
 }""" % BASE,
     # §3.4 日本語ラベル補完: 日本語版Wikipediaの記事名（ラベル欠落時のフォールバック）
     "jawiki": """

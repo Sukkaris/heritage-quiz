@@ -68,6 +68,17 @@ const COUNTRY_POOL = Object.keys(COUNTRIES).filter(
   (c) => COUNTRIES[c] && COUNTRIES[c].ja && COUNTRIES[c].region
 );
 
+// 同じ日本語名の遺産が複数ある（例: イグアス国立公園＝アルゼンチンとブラジル）。
+// 選択肢は名前しか出ないので、名前で見て正解になりうるものは誤答に使えない。
+const SITES_BY_NAME = {};
+ELIGIBLE.forEach((s) => {
+  (SITES_BY_NAME[s.ja] = SITES_BY_NAME[s.ja] || []).push(s);
+});
+
+function nameExistsInCountry(name, country) {
+  return (SITES_BY_NAME[name] || []).some((s) => s.countries.indexOf(country) >= 0);
+}
+
 const MANUAL = (typeof MANUAL_QUESTIONS !== 'undefined' && Array.isArray(MANUAL_QUESTIONS))
   ? MANUAL_QUESTIONS : [];
 
@@ -237,7 +248,8 @@ function makeSiteFromCountryQuestion(site) {
   if (!country) return null;
   const region = COUNTRIES[country].region;
 
-  const usable = (s) => s.qid !== site.qid && s.countries.indexOf(country) < 0;
+  const usable = (s) => s.qid !== site.qid && s.countries.indexOf(country) < 0
+    && !nameExistsInCountry(s.ja, country);
   const near = ELIGIBLE.filter((s) => usable(s) && s.regions.indexOf(region) >= 0);
   const far = ELIGIBLE.filter((s) => usable(s) && s.regions.indexOf(region) < 0);
 

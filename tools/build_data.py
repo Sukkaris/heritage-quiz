@@ -15,6 +15,7 @@ import os
 import re
 import statistics
 import sys
+import unicodedata
 from collections import defaultdict
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -131,6 +132,13 @@ def main():
     for r in load("jawiki"):
         jawiki[qid(r["item"]["value"])] = r["title"]["value"]
 
+    # 日本語版Wikipediaの登録名から引いたQID（構成資産のIDしか持たない遺産の対応づけ用）
+    jaqid_path = os.path.join(RAW, "jawiki_qid.json")
+    jaqid = {}
+    if os.path.exists(jaqid_path):
+        with io.open(jaqid_path, encoding="utf-8") as f:
+            jaqid = json.load(f)
+
     # 登録基準(i)〜(x)の日本語条文（テンプレート5で選択肢として出す）
     crit_ja_path = os.path.join(RAW, "criteria_ja.json")
     crit_ja = {}
@@ -176,44 +184,161 @@ def main():
             no_region.append((c, m["ja"] or m["en"], sorted(m["continents"])))
         country_out[c] = {"ja": m["ja"] or m["en"], "en": m["en"], "region": region}
 
+    # UNESCO公式一覧（件数の答え合わせと、P757欠落の拾い直しに使う）
+    unesco_path = os.path.join(RAW, "unesco_list.json")
+    unesco = {}
+    if os.path.exists(unesco_path):
+        with io.open(unesco_path, encoding="utf-8") as f:
+            unesco = json.load(f)
+
     # ---- WHS ID で名寄せ ---------------------------------------------------
-    groups = defaultdict(list)
+    # P757 には遺産そのもののID（"669" "669bis" "620rev"）のほかに、
+    # 構成資産のID（"868-062" = 巡礼路868の62番目 = アミアン大聖堂）も入っている。
+    # 後者を遺産のIDとして扱うと、構成資産が親遺産を乗っ取る。数字＋rev/bis/ter/quater
+    # だけを遺産のIDとみなし、ハイフン付きは構成資産として識別には使わない。
+    SITE_ID = re.compile(r"^(\d+)(rev|bis|ter|quater)?$")
+
+    groups = defaultdict(list)      # 遺産ID -> 候補アイテム
+    parts = defaultdict(list)       # 遺産ID -> 構成資産アイテム
     no_whsid = []
     for q, d in items.items():
         if "whsid" not in d:
             no_whsid.append(q)
             continue
-        m = re.match(r"\d+", d["whsid"])
-        groups[m.group(0) if m else d["whsid"]].append(q)
+        m = SITE_ID.match(d["whsid"])
+        if m:
+            groups[m.group(1)].append(q)
+        else:
+            base = re.match(r"\d+", d["whsid"])
+            if base:
+                parts[base.group(0)].append(q)
 
+    # ---- UNESCO公式のID一覧を「どの遺産が存在するか」の基準にする --------------
+    rescued = []
+    if unesco:
+        official = set(unesco)
+
+        def normalize(s):
+            """比較用に英語名をならす（記号・発音記号・大小文字の差を吸収）"""
+            s = re.sub(r"<[^>]+>", " ", s or "")
+            s = unicodedata.normalize("NFKD", s)
+            s = "".join(c for c in s if not unicodedata.combining(c))
+            return re.sub(r"[^a-z0-9]+", " ", s.lower()).strip()
+
+        # 冠詞や前置詞の有無だけが違う名前を同一視するための、さらに緩い正規化
+        STOP = {"of", "the", "a", "an", "and", "in", "at", "on", "its"}
+
+        def loose(s):
+            return " ".join(w for w in normalize(s).split() if w not in STOP)
+
+        by_en = defaultdict(list)
+        by_en_loose = defaultdict(list)
+        for q, d in items.items():
+            if d.get("en"):
+                by_en[normalize(d["en"])].append(q)
+                by_en_loose[loose(d["en"])].append(q)
+        by_jatitle = defaultdict(list)
+        for q, title in jawiki.items():
+            by_jatitle[title].append(q)
+
+        assigned, reps = {}, set()
+
+        def take(wid, q, how=None):
+            assigned[wid] = [q]
+            reps.add(q)
+            if how:
+                rescued.append((wid, how, items[q].get("en") or items[q].get("ja"), q))
+
+        # 1) 遺産IDが一致するアイテム（最優先）
+        for wid in official:
+            cands = groups.get(wid)
+            if not cands:
+                continue
+            name = normalize(unesco[wid]["name"])
+            cands.sort(key=lambda q: (normalize(items[q].get("en")) == name,
+                                      "years" in items[q],
+                                      items[q].get("sitelinks", 0)), reverse=True)
+            take(wid, cands[0])
+
+        # 2) IDが無いIDは、公式の英語名と完全一致するアイテムで拾う
+        for wid in official - set(assigned):
+            for q in by_en.get(normalize(unesco[wid]["name"]), []):
+                if q not in reps:
+                    take(wid, q, "公式英語名と一致")
+                    break
+
+        # 3) 日本語版Wikipediaの登録名から引いたQIDで拾う（リダイレクト解決済み）
+        for wid in official - set(assigned):
+            q = jaqid.get(wid)
+            if q and q in items and q not in reps:
+                take(wid, q, "jawiki一覧の登録名から引いたQID")
+
+        # 4) 日本語版Wikipediaの記事名が登録名と一致するアイテムで拾う
+        for wid in official - set(assigned):
+            for q in by_jatitle.get(jalist.get(wid, "\0"), []):
+                if q not in reps:
+                    take(wid, q, "jawiki一覧の登録名と記事名が一致")
+                    break
+
+        # 5) 冠詞・前置詞の違いだけの英語名で拾う
+        for wid in official - set(assigned):
+            for q in by_en_loose.get(loose(unesco[wid]["name"]), []):
+                if q not in reps:
+                    take(wid, q, "公式英語名と（冠詞等を除いて）一致")
+                    break
+
+        # 併合対象（国・座標の補完に使う）: 同じIDの他アイテムと構成資産のうち、
+        # 他の遺産の代表になっていないもの
+        for wid in list(assigned):
+            rep = assigned[wid][0]
+            others = [q for q in groups.get(wid, []) + parts.get(wid, [])
+                      if q != rep and q not in reps]
+            assigned[wid] = [rep] + others
+
+        dropped_ids = sorted(set(groups) - official)
+        groups = assigned
+    else:
+        dropped_ids = []
+
+    rescued_ids = {w for w, _, _, _ in rescued}
     sites = []
     year_anomalies = []
     for gid, members in groups.items():
-        # 代表: 登録年を持つもの > サイトリンク数が多いもの
-        members.sort(key=lambda q: (("years" in items[q]), items[q].get("sitelinks", 0)), reverse=True)
         rep = members[0]
         d = items[rep]
 
         years = set()
-        cset, coset = set(), set()
-        ja = None
+        coset = set()
+        # 登録基準は代表アイテムのものを使う（構成資産の基準が混ざらないように）。
+        # 代表が持っていない場合だけ、同じIDの他のアイテムから補う。
+        cset = set(criteria.get(rep, set()))
         for q in members:
             years |= items[q].get("years", set())
-            cset |= criteria.get(q, set())
             coset |= countries.get(q, set())
-            if ja is None:
-                ja = items[q].get("ja")
-        ja_source = "wikidata" if ja else None
-        if ja is None:  # §3.4 補完1: 日本語版Wikipediaの記事名（sitelink）
-            for q in members:
-                if q in jawiki:
-                    ja, ja_source = jawiki[q], "jawiki記事名"
-                    break
-        if ja is None and gid in jalist:  # §3.4 補完2: 「世界遺産の一覧」の登録名
+            if not cset:
+                cset |= criteria.get(q, set())
+
+        # 日本語名は代表アイテムのものだけを使う（構成資産の名前が紛れ込まないように）
+        ja, ja_source = items[rep].get("ja"), "wikidata"
+        # 名前で拾い直した遺産は、アイテムのラベルが構成資産の名前になっていることが
+        # ある（例: ID162 アミアン大聖堂 → ラベルは「ノートルダム大聖堂」）。
+        # その場合は日本語版Wikipediaの登録名を優先する。
+        if gid in rescued_ids and gid in jalist:
             ja, ja_source = jalist[gid], "jawiki一覧の登録名"
+        if not ja and rep in jawiki:            # §3.4 補完1: 日本語版Wikipediaの記事名
+            ja, ja_source = jawiki[rep], "jawiki記事名"
+        if not ja and gid in jalist:            # §3.4 補完2: 「世界遺産の一覧」の登録名
+            ja, ja_source = jalist[gid], "jawiki一覧の登録名"
+        if not ja:
+            ja_source = None
+
+        u = unesco.get(gid, {})
 
         cats = ("cultural" if cset & CULTURAL else "") + ("natural" if cset & NATURAL else "")
         category = {"cultural": "文化", "natural": "自然", "culturalnatural": "複合"}.get(cats)
+        cat_source = "登録基準から導出" if category else None
+        if not category and u.get("category"):   # 基準が未登録の遺産は公式の区分を使う
+            category, cat_source = u["category"], "UNESCO公式"
 
         regions = sorted({country_out[c]["region"] for c in coset if country_out.get(c, {}).get("region")})
         valid_years = sorted(y for y in years if YEAR_MIN <= y <= YEAR_MAX)
@@ -221,6 +346,8 @@ def main():
             year_anomalies.append((ja or d.get("en"), sorted(years)))
         elif years and min(years) < YEAR_MIN:
             year_anomalies.append((ja or d.get("en"), sorted(years)))
+        # 登録年は公式値を優先する（Wikidataには拡張登録の年などが混ざる）
+        year = u.get("year") or (valid_years[0] if valid_years else None)
 
         sites.append({
             "qid": rep,
@@ -230,14 +357,15 @@ def main():
             "hasJaLabel": bool(ja),
             "countries": sorted(coset),
             "regions": regions,
-            "year": valid_years[0] if valid_years else None,
+            "year": year,
             "criteria": sorted(cset, key=lambda x: CRIT_ORDER.index(x)),
             "category": category,
-            "sitelinks": max(items[q].get("sitelinks", 0) for q in members),
-            "coord": next((coords[q] for q in members if q in coords), None),
-            "inDanger": any(q in danger for q in members),
+            "sitelinks": items[rep].get("sitelinks", 0),
+            "coord": coords.get(rep) or next((coords[q] for q in members if q in coords), None),
+            "inDanger": bool(u["danger"]) if u.get("danger") is not None else any(q in danger for q in members),
             "members": len(members),
             "jaSource": ja_source,
+            "catSource": cat_source,
         })
 
     sites.sort(key=lambda s: (-s["sitelinks"], s["qid"]))
@@ -263,9 +391,15 @@ def main():
     A("| うち UNESCO ID(P757) を持つ | %d |" % (len(items) - len(no_whsid)))
     A("| ID正規化後の遺産件数（本アプリのマスタ） | %d |" % len(sites))
     A("| 構成資産等としてマスタから除外 | %d |" % len(no_whsid))
+    if unesco:
+        A("| 公式一覧に無いIDとして除外 | %d |" % len(dropped_ids))
     A("")
-    A("公式発表は2025年8月時点で1,248件。本データには2026年登録分（%d件）も含まれるため、"
-      "%d件は妥当な範囲。" % (sum(1 for s in sites if s["year"] == 2026), len(sites)))
+    if unesco:
+        A("遺産の単位はUNESCO公式一覧のIDに合わせている（%d件）。2026年登録は%d件。"
+          % (len(unesco), sum(1 for s in sites if s["year"] == 2026)))
+        if dropped_ids:
+            A("")
+            A("公式一覧に無いID: %s" % ", ".join(dropped_ids))
     A("")
     A("## 品質チェック")
     A("")
@@ -299,10 +433,57 @@ def main():
     cnt = defaultdict(int)
     for s in sites:
         cnt[s["category"] or "不明"] += 1
-    A("| 区分 | 本データ | 公式(2025年8月) |")
+    A("| 区分 | 本データ | UNESCO公式 |")
     A("|---|---|---|")
-    for k, off in (("文化", "972"), ("自然", "235"), ("複合", "41"), ("不明", "-")):
-        A("| %s | %d | %s |" % (k, cnt[k], off))
+    for k in ("文化", "自然", "複合"):
+        A("| %s | %d | %s |" % (k, cnt[k],
+                                sum(1 for u in unesco.values() if u["category"] == k) if unesco else "-"))
+    A("| 不明 | %d | - |" % cnt["不明"])
+    A("")
+    A("## UNESCO公式一覧との突き合わせ")
+    A("")
+    if not unesco:
+        A("`raw/unesco_list.json` が無いため未実施（`tools/fetch_unesco_list.py` を実行する）。")
+    else:
+        ours = {s["whsid"] for s in sites}
+        theirs = set(unesco)
+        A("| 項目 | 本アプリ | UNESCO公式 |")
+        A("|---|---|---|")
+        A("| 総件数 | %d | %d |" % (len(sites), len(unesco)))
+        for k in ("文化", "自然", "複合"):
+            A("| %s | %d | %d |" % (k, sum(1 for s in sites if s["category"] == k),
+                                     sum(1 for u in unesco.values() if u["category"] == k)))
+        A("| 危機遺産 | %d | %d |" % (sum(1 for s in sites if s["inDanger"]),
+                                      sum(1 for u in unesco.values() if u["danger"])))
+        A("")
+        extra_ids = sorted(ours - theirs, key=lambda x: (len(x), x))
+        missing_ids = sorted(theirs - ours, key=lambda x: (len(x), x))
+        A("- 公式に無いのに本アプリにある: **%d件**%s"
+          % (len(extra_ids), ("　" + ", ".join(
+              "%s(%s)" % (i, next((s["ja"] or s["en"] for s in sites if s["whsid"] == i), "?"))
+              for i in extra_ids[:10])) if extra_ids else ""))
+        A("- 公式にあるのに本アプリに無い: **%d件**%s"
+          % (len(missing_ids), ("　" + ", ".join(
+              "%s(%s)" % (i, unesco[i]["name"]) for i in missing_ids[:10])) if missing_ids else ""))
+        if rescued:
+            A("- WikidataのUNESCO IDが無い／構成資産のIDしか無いため、名前で拾い直した: **%d件**"
+              % len(rescued))
+            for w, how, n, q in rescued:
+                A("  - %s: %s（%s）" % (w, n, how))
+        A("")
+        catmis = [(s, unesco[s["whsid"]]) for s in sites
+                  if s["whsid"] in unesco and s["category"] and s["category"] != unesco[s["whsid"]]["category"]]
+        yearmis = [(s, unesco[s["whsid"]]) for s in sites
+                   if s["whsid"] in unesco and s["year"] and unesco[s["whsid"]]["year"]
+                   and s["year"] != unesco[s["whsid"]]["year"]]
+        A("- 区分が公式と食い違う: **%d件**" % len(catmis))
+        for s, u in catmis[:15]:
+            A("  - %s (%s): 本アプリ=%s / 公式=%s / 基準=%s"
+              % (s["ja"] or s["en"], s["whsid"], s["category"], u["category"],
+                 "".join("(%s)" % c for c in s["criteria"])))
+        A("- 登録年が公式と食い違う: **%d件**" % len(yearmis))
+        for s, u in yearmis[:15]:
+            A("  - %s (%s): 本アプリ=%s / 公式=%s" % (s["ja"] or s["en"], s["whsid"], s["year"], u["year"]))
     A("")
     A("## 登録基準の分布（テンプレート5で使用）")
     A("")
@@ -360,6 +541,7 @@ def main():
     for s in sites:
         s.pop("members", None)
         s.pop("jaSource", None)
+        s.pop("catSource", None)
     js = [
         "// 世界遺産マスタ（自動生成 / tools/build_data.py）",
         "// 出典: Wikidata (CC0)。手で編集せず、再生成すること。",

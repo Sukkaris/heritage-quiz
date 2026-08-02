@@ -3,7 +3,7 @@
  * ファイルを更新したら必ず CACHE_VERSION を上げること。
  * 上げないとiPhone側が古いままになる。
  */
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = 'heritage-quiz-' + CACHE_VERSION;
 
 const ASSETS = [
