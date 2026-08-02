@@ -11,7 +11,15 @@
 
 const SET_SIZE = 10;              // 1セットの問題数
 const STORAGE_KEY = 'heritageQuiz.stats.v1';
+const BACKUP_KEY = 'heritageQuiz.backup.v1';
 const MANUAL_RATIO = 0.3;         // 1セットに混ぜる手書き問題の上限割合（§9）
+
+// 学習記録の書き出しを促す条件。iOSは一定期間使わないとブラウザの保存領域を
+// 消すことがあるため、記録が消えても取り返せるように書き出しを勧める。
+const BACKUP = {
+  warnAfterDays: 14,        // 前回の書き出しからこの日数を超えたら目立たせる
+  remindAfterAnswers: 100   // 前回の書き出し後にこの問数を解いたら結果画面で促す
+};
 
 // 登録年代フィルタ（§4.1）
 const ERAS = [
@@ -154,6 +162,32 @@ function recordAnswer(qid, isCorrect) {
   rec.lastAnswered = Date.now();
   stats[qid] = rec;
   saveStats();
+}
+
+function totalAnswers() {
+  let n = 0;
+  for (const k of Object.keys(stats)) n += stats[k].correct + stats[k].wrong;
+  return n;
+}
+
+// 書き出しの記録（いつ・何問時点で書き出したか）
+function loadBackupInfo() {
+  try {
+    return JSON.parse(localStorage.getItem(BACKUP_KEY)) || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function markExported() {
+  try {
+    localStorage.setItem(BACKUP_KEY, JSON.stringify({
+      lastExport: Date.now(),
+      answersAtExport: totalAnswers()
+    }));
+  } catch (e) {
+    /* 保存できなくても書き出し自体は成功している */
+  }
 }
 
 // 弱点モードの重み（§7.2）
@@ -440,6 +474,31 @@ function updateStatsView() {
   $('stat-rate').textContent = (c + w) ? Math.round((c / (c + w)) * 100) + '%' : '–';
   $('stat-seen').textContent = keys.length;
   $('stat-weak').textContent = weak;
+  updateBackupNotice(c + w);
+}
+
+// A. スタート画面に、前回の書き出しからの経過を出す
+function updateBackupNotice(answered) {
+  const el = $('backup-notice');
+  if (!el) return;
+  const info = loadBackupInfo();
+
+  if (!answered) {                       // まだ記録が無ければ何も出さない
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+
+  if (!info.lastExport) {
+    el.textContent = '学習記録はこの端末にしか残りません。まだ一度も書き出していません。';
+    el.classList.toggle('is-warn', answered >= BACKUP.remindAfterAnswers);
+    return;
+  }
+  const days = Math.floor((Date.now() - info.lastExport) / 86400000);
+  el.textContent = days === 0
+    ? '学習記録は今日書き出し済みです。'
+    : '前回の書き出しから' + days + '日たちました。';
+  el.classList.toggle('is-warn', days >= BACKUP.warnAfterDays);
 }
 
 // --- 出題画面 -----------------------------------------------
@@ -537,7 +596,23 @@ function showResult() {
   }
 
   updateStatsView();
+  updateResultBackupHint();
   showScreen('result');
+}
+
+// B. 書き出さないまま一定問数を超えたら、結果画面で一言だけ促す
+function updateResultBackupHint() {
+  const box = $('backup-hint');
+  if (!box) return;
+  const info = loadBackupInfo();
+  const since = totalAnswers() - (info.answersAtExport || 0);
+  const show = since >= BACKUP.remindAfterAnswers;
+  box.hidden = !show;
+  if (show) {
+    $('backup-hint-text').textContent = info.lastExport
+      ? '前回の書き出しから' + since + '問ぶんの記録がたまっています。'
+      : '記録が' + since + '問ぶんたまっています。この端末を離れると失われます。';
+  }
 }
 
 // --- 開始・中断 ---------------------------------------------
@@ -566,6 +641,9 @@ function exportStats() {
   a.download = 'heritage-quiz-stats-' + stamp + '.json';
   a.click();
   URL.revokeObjectURL(a.href);
+  markExported();
+  updateStatsView();
+  updateResultBackupHint();
 }
 
 function importStats(file) {
@@ -633,6 +711,7 @@ function init() {
   });
 
   $('btn-export').addEventListener('click', exportStats);
+  $('btn-export-result').addEventListener('click', exportStats);
   $('import-file').addEventListener('change', (e) => {
     if (e.target.files[0]) importStats(e.target.files[0]);
     e.target.value = '';

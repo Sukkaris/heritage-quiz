@@ -33,6 +33,7 @@
       <div class="stat"><span class="stat-num" id="stat-seen">0</span><span class="stat-label">出題済み遺産</span></div>
       <div class="stat"><span class="stat-num" id="stat-weak">0</span><span class="stat-label">苦手</span></div>
     </div>
+    <p class="backup-notice" id="backup-notice" hidden></p>
   </section>
 
   <section class="card">
@@ -129,6 +130,11 @@
   <section class="card" id="wrong-card">
     <h2>間違えた遺産</h2>
     <ul class="wrong-list" id="wrong-list"></ul>
+  </section>
+
+  <section class="card backup-hint" id="backup-hint" hidden>
+    <p class="backup-hint-text" id="backup-hint-text"></p>
+    <button class="mini-btn" id="btn-export-result">JSONで書き出す</button>
   </section>
 
   <button class="primary-btn" id="btn-again">同じ条件でもう一度</button>

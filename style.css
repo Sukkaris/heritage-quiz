@@ -120,6 +120,16 @@ h2 { font-size: .92rem; margin: 0 0 12px; color: var(--text-dim); font-weight: 6
 }
 .mini-btn.danger { color: var(--wrong); }
 
+/* --- 学習記録の書き出しを促す表示 --- */
+.backup-notice {
+  margin: 14px 0 0; padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--text-dim); font-size: .74rem; line-height: 1.6;
+}
+.backup-notice.is-warn { color: #f0c674; }
+.backup-hint { display: flex; flex-direction: column; gap: 10px; }
+.backup-hint-text { margin: 0; font-size: .82rem; color: #f0c674; line-height: 1.6; }
+
 .credit { color: var(--text-dim); font-size: .68rem; line-height: 1.7; margin: 18px 2px 0; }
 .credit a { color: var(--text-dim); }
 

@@ -78,12 +78,17 @@ uv run --with truststore python tools/fetch_wikidata.py && uv run --with trustst
 | 誤答をどれだけ近くから引くか | `app.js` の `DISTRACTOR_NEARNESS` |
 | 弱点モードの重み | `app.js` の `weightOf()` |
 | 手書き問題の混ざる割合 | `app.js` の `MANUAL_RATIO` |
+| 記録の書き出しを促す条件 | `app.js` の `BACKUP`（日数・問数） |
 
 ## 学習記録
 
 localStorage（キー `heritageQuiz.stats.v1`）に遺産QIDごとの
 `{ correct, wrong, lastAnswered }` を保存する。ブラウザのデータを消すと失われる。
 スタート画面の「学習記録の管理」からJSONで書き出し・読み込みができる。
+
+iOSは長期間使っていないサイトの保存データを消すことがあるため、
+書き出しから14日たつとスタート画面の表示が変わり、書き出さないまま100問を超えると
+結果画面に書き出しボタンが出る。書き出した日時は `heritageQuiz.backup.v1` に持つ。
 
 ## この先
 
