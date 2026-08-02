@@ -51,14 +51,14 @@
 - 公式に無いのに本アプリにある: **0件**
 - 公式にあるのに本アプリに無い: **0件**
 - WikidataのUNESCO IDが無い／構成資産のIDしか無いため、名前で拾い直した: **10件**
-  - 678: Complex of Huế Monuments（公式英語名と一致）
-  - 792: Historic Monuments Zone of Querétaro（公式英語名と一致）
-  - 676: Historic centre of Zacatecas（公式英語名と一致）
-  - 1274: Protective town of San Miguel and the Sanctuary of Jesús Nazareno de Atotonilco（公式英語名と一致）
   - 482: Historic Town of Guanajuato and Adjacent Mines（公式英語名と一致）
   - 635: Bourges Cathedral（公式英語名と一致）
-  - 316: Burgos Cathedral（公式英語名と一致）
   - 1558: Žatec and the Landscape of Saaz Hops（公式英語名と一致）
+  - 678: Complex of Huế Monuments（公式英語名と一致）
+  - 316: Burgos Cathedral（公式英語名と一致）
+  - 792: Historic Monuments Zone of Querétaro（公式英語名と一致）
+  - 1274: Protective town of San Miguel and the Sanctuary of Jesús Nazareno de Atotonilco（公式英語名と一致）
+  - 676: Historic centre of Zacatecas（公式英語名と一致）
   - 162: Notre-Dame d'Amiens（jawiki一覧の登録名から引いたQID）
   - 95: Old city (Dubrovnik)（公式英語名と（冠詞等を除いて）一致）
 

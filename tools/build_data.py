@@ -9,6 +9,7 @@
   そのまま数えると3,378件になる。UNESCOのID(P757)を持つものだけを「1件」とし、
   さらにID末尾の rev / bis / -001 等を落とした数値部分でグループ化して名寄せする。
 """
+import datetime
 import io
 import json
 import os
@@ -70,7 +71,8 @@ COUNTRY_REGION_OVERRIDE = {
 
 # 登録年として妥当な範囲。第1回登録は1978年。範囲外は「国立公園の設置年」等の
 # 別の日付が P580 に紛れ込んでいるものなので、登録年としては採用しない。
-YEAR_MIN, YEAR_MAX = 1978, 2026
+# 上限は実行時の年（毎年の更新で書き換えなくて済むように）。
+YEAR_MIN, YEAR_MAX = 1978, datetime.date.today().year
 
 CRIT_ORDER = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"]
 CULTURAL = set(CRIT_ORDER[:6])

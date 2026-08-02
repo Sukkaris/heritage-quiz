@@ -61,11 +61,10 @@ git add -A && git commit -m "更新内容" && git push
 
 ### データを取り直す
 
-```bash
-uv run --with truststore python tools/fetch_wikidata.py && uv run --with truststore python tools/fetch_jawiki_list.py && uv run --with truststore python tools/fetch_criteria_ja.py && uv run --with truststore python tools/build_data.py
-```
+毎年の更新手順（実行順・確認項目つき）は [PROGRESS.md の「年次更新の手順」](PROGRESS.md)
+にまとめてある。`raw/` に既にあるファイルは再取得しないので、取り直したいものだけ
+消してから実行する。
 
-`raw/` に既にあるファイルは再取得しない。取り直したいものだけ消してから実行する。
 （このPCはTLS傍受環境のため `truststore` が必要。Wikidata Query Serviceは
 混雑時 1リクエスト/分 に制限されることがあり、その場合は自動で待って再試行する）
 

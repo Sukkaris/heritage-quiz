@@ -129,7 +129,7 @@ Wikidataには (i)(ii) の条文が入っていなかったので、日本語版
 | 弱点モード | 苦手な遺産が均等抽選の約6倍の頻度で出る |
 | 手書き問題の受け入れ口 | 1問注入して混ざることを確認 |
 | レイアウト（375px幅） | 横スクロールなし、選択肢56px、最長61文字の遺産名でもはみ出しなし |
-| オフライン動作 | サーバーを停止した状態で再読み込みし、1,244件すべて読み込めた |
+| オフライン動作 | サーバーを停止した状態で再読み込みし、全件読み込めた |
 | 本番URL | Service Worker稼働、10ファイルすべてキャッシュ、出題まで正常 |
 
 ※ 登録基準の難易度レバーが「難」で3.00にならないのは、遺産ごとに選べる基準の
@@ -177,17 +177,108 @@ Wikidataには (i)(ii) の条文が入っていなかったので、日本語版
 
 ---
 
-## 8. これから足せるもの
+## 8. 年次更新の手順
+
+世界遺産は毎年6〜7月の世界遺産委員会で新規登録がある。更新はデータの取り直しだけで、
+アプリのコードは触らない。**1年後にスクリプトの中身を忘れていても、この節だけ読めば終わる**
+ように書いてある。
+
+### いつやるか
+
+委員会の直後は、UNESCO公式一覧には載っていてもWikidata側が追いついていないことがある
+（新規登録の遺産に日本語ラベルやサイトリンクが揃うまで数週間〜数か月かかる）。
+**委員会から1〜2か月あけてから**実行するのが無難。Wikidata Query Serviceは障害中だと
+1リクエスト/分に制限されることがあり、その間に取ると**結果が歯抜けになる**
+（2026年に実際に起きた。§3.2参照）。取得後の件数チェックで気付けるようにしてある。
+
+### 手順
+
+**1. 古いデータを消す**（消したものだけ取り直す作りになっている）
+
+条文（`criteria_ja.json`）と基準ラベル（`criteria_labels.json`）は変わらないので残す。
+
+```bash
+cd "D:/Claude Code/heritage-quiz/raw" && rm -f items.json countries.json criteria.json country_meta.json coords.json in_danger.json jawiki.json unesco_list.json jawiki_list.json jawiki_qid.json jawiki_category.json
+```
+
+**2. 取り直す**（この順番で実行する。`fetch_ja_qids.py` は `jawiki_list.json` を使うので順序が必要）
+
+```bash
+cd "D:/Claude Code/heritage-quiz" && uv run --with truststore python tools/fetch_unesco_list.py && uv run --with truststore python tools/fetch_jawiki_list.py && uv run --with truststore python tools/fetch_ja_qids.py && uv run --with truststore python tools/fetch_wikidata.py
+```
+
+`fetch_wikidata.py` はレート制限に合わせて待つので**10分ほどかかる**。
+`UV_NATIVE_TLS is deprecated` という警告が出るが無視してよい。
+
+**3. マスタを作る**
+
+```bash
+cd "D:/Claude Code/heritage-quiz" && uv run python tools/build_data.py && uv run --with truststore python tools/verify_category.py
+```
+
+**4. 確認する**（下の「確認項目」を見る）
+
+**5. キャッシュ版を上げてpushする**
+
+`sw.js` の `CACHE_VERSION` を `v3` → `v4` のように上げる。**これを忘れるとiPhoneが
+古いままになる。**
+
+```bash
+cd "D:/Claude Code/heritage-quiz" && git add -A && git commit -m "2027年の登録分を反映" && git push
+```
+
+### スクリプトの入出力
+
+| スクリプト | 読むもの | 作るもの |
+|---|---|---|
+| `fetch_unesco_list.py` | UNESCO公式XML | `raw/unesco_list.json`（IDの正解一覧） |
+| `fetch_jawiki_list.py` | 日本語版Wikipediaの一覧記事 | `raw/jawiki_list.json`（ID→日本語の登録名） |
+| `fetch_ja_qids.py` | `raw/jawiki_list.json` | `raw/jawiki_qid.json`（ID→QID） |
+| `fetch_wikidata.py` | Wikidata | `raw/items.json` ほか7ファイル |
+| `fetch_criteria_ja.py` | 日本語版Wikipedia | `raw/criteria_ja.json`（基準の条文。**再実行不要**） |
+| `build_data.py` | `raw/` 一式 | `data.js` と `DATA_REPORT.md` |
+| `verify_category.py` | `data.js` と `raw/unesco_list.json` | `CATEGORY_CHECK.md` |
+
+日本語名の補完（§3.3）は `fetch_jawiki_list.py` が担っているので、**毎年やり直す**。
+新規登録の遺産はWikidataに日本語ラベルが無いことが多く、これを飛ばすと新しい遺産が
+出題対象から丸ごと抜ける。
+
+### 確認項目
+
+`DATA_REPORT.md` の「UNESCO公式一覧との突き合わせ」を見る。ここが全部そろっていれば正常。
+
+| 見る場所 | 正常な状態 |
+|---|---|
+| 総件数 | 本アプリとUNESCO公式が**同じ数** |
+| 文化 / 自然 / 複合 | 3つとも公式と一致 |
+| 危機遺産 | 公式と一致 |
+| 公式に無いのに本アプリにある | 0件 |
+| 公式にあるのに本アプリに無い | 0件 |
+| 区分・登録年が公式と食い違う | どちらも0件 |
+| 出題可能件数 | 総件数からの目減りが数件以内 |
+| 日本語ラベル欠落 | 数件以内（2026年時点は2件） |
+| 登録年の欠損 | 0件 |
+| `CATEGORY_CHECK.md` の不一致 | 0件 |
+
+食い違いが出たら、原因の見当は §3.2 の表（抹消・統合、構成資産、取得漏れ、ID欠落）が
+だいたい網羅している。件数が大きく足りない場合はQuery Serviceの取得漏れを疑い、
+`raw/items.json` を消して取り直す。
+
+年の上限は実行時の年を自動で使うので、書き換えは不要。難易度の閾値も再計算される。
+
+---
+
+## 9. これから足せるもの
 
 - **手書き問題**（企画書§9）: `manual_questions.js` に書き足すだけで出題に混ざる。
   1セット10問のうち最大3問まで。「なぜこの登録基準なのか」など、テンプレートでは
   作れない設問はここに入れる
-- **地図機能**: 座標を1,257件分すでに持っている（`data.js` の `coord`）
+- **地図機能**: 座標を1,255件分すでに持っている（`data.js` の `coord`）
 - **別ジャンルへの差し替え**: `data.js` を入れ替えれば、美術・絵画のクイズにできる構造
 
 ---
 
-## 9. ファイルの役割
+## 10. ファイルの役割
 
 | ファイル | 中身 |
 |---|---|
